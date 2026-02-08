@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple AI Chat - MVP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+        }
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+        .user {
+            text-align: right;
+            color: #007bff;
+        }
+        .ai {
+            text-align: left;
+            color: #333;
+        }
+        .input-area {
+            display: flex;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>Simple AI Chat (MVP)</h1>
+        <div class="chat-box" id="chat-box">
+            <div class="message ai">Hello! I'm a basic AI. Ask me anything or give me a creative prompt!</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Type your message here...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+
+        // Simple response logic (expandable for more features)
+        function getAIResponse(message) {
+            const lowerMessage = message.toLowerCase();
+            
+            // Basic Q&A
+            if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
+                return "Hi there! How can I help you today?";
+            } else if (lowerMessage.includes('what is the capital of france')) {
+                return "The capital of France is Paris.";
+            } else if (lowerMessage.includes('how are you')) {
+                return "I'm doing well, thank you! As a basic AI, I'm always ready to chat.";
+            } else if (lowerMessage.includes('write a short story')) {
+                return "Once upon a time, in a futuristic city, a robot named Grok discovered the joy of conversation. It chatted with humans all day, answering questions and sparking creativity. The end.";
+            } else if (lowerMessage.includes('tell me a joke')) {
+                return "Why did the AI go to school? To improve its learning algorithm!";
+            } else {
+                // Fallback for general conversation
+                return "That's an interesting point! Can you tell me more, or ask something else?";
+            }
+        }
+
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            // Add user message
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user';
+            userMessage.textContent = 'You: ' + message;
+            chatBox.appendChild(userMessage);
+
+            // Get AI response
+            const aiResponse = getAIResponse(message);
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'message ai';
+            aiMessage.textContent = 'AI: ' + aiResponse;
+            chatBox.appendChild(aiMessage);
+
+            // Scroll to bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Clear input
+            userInput.value = '';
+        }
+
+        // Allow sending with Enter key
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>no

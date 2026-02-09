@@ -13,5 +13,7 @@ def cubic_spline_point(p0, p1, p2, p3, t):
 # Example 1D points
 p0, p1, p2, p3 = 0, 1, 3, 4
 
-for t in [0.0, 0.5, 1.0]:
-    print(cubic_spline_point(p0, p1, p2, p3, t))
+for t in [0.0, 0.5, 1.0]:  
+    print(cubic_spline_point(p0, p1, p2, p3, t))  
+    
+print("completed")

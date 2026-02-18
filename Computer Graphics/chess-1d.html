@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1D Chess</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8d5a3;
+    --dark: #0e0c09;
+    --dark2: #1a1712;
+    --dark3: #2a2620;
+    --cream: #f5eed8;
+    --red: #8b2020;
+    --red-light: #c44;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Crimson Pro', serif;
+    color: var(--cream);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, #2a1f0a22 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.5rem, 4vw, 2.8rem);
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 0.3em;
+    text-shadow: 0 0 40px #c9a84c55;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    color: var(--gold-light);
+    opacity: 0.5;
+    margin-bottom: 3rem;
+    font-style: italic;
+    text-align: center;
+  }
+
+  .status-bar {
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    color: var(--gold-light);
+    margin-bottom: 2rem;
+    height: 1.5em;
+    text-align: center;
+    transition: color 0.3s;
+  }
+
+  .status-bar.check { color: var(--red-light); text-shadow: 0 0 20px #c4444466; }
+  .status-bar.win { color: #6fdf6f; text-shadow: 0 0 20px #6fdf6f66; font-size: 1.1rem; }
+
+  .board-wrapper {
+    position: relative;
+    padding: 20px 0;
+  }
+
+  /* decorative lines */
+  .board-wrapper::before, .board-wrapper::after {
+    content: '';
+    position: absolute;
+    left: -30px; right: -30px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0.3;
+  }
+  .board-wrapper::before { top: 0; }
+  .board-wrapper::after { bottom: 0; }
+
+  .board {
+    display: flex;
+    gap: 0;
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 60px #c9a84c22, inset 0 0 20px #00000044;
+    position: relative;
+  }
+
+  .cell {
+    width: clamp(54px, 8vw, 80px);
+    height: clamp(54px, 8vw, 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s;
+    user-select: none;
+  }
+
+  .cell:nth-child(odd)  { background: var(--cream); color: #1a1a1a; }
+  .cell:nth-child(even) { background: var(--dark3); color: var(--cream); }
+
+  .cell::after {
+    content: attr(data-idx);
+    position: absolute;
+    bottom: 3px;
+    right: 5px;
+    font-size: 0.55rem;
+    font-family: 'Cinzel', serif;
+    opacity: 0.35;
+    color: inherit;
+  }
+
+  .cell.selected {
+    background: var(--gold) !important;
+    color: var(--dark) !important;
+    box-shadow: inset 0 0 20px #00000033;
+  }
+
+  .cell.valid-move {
+    cursor: pointer;
+  }
+
+  .cell.valid-move::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .cell.valid-move.has-enemy::before {
+    border-radius: 0;
+    inset: 4px;
+    background: transparent;
+    border: 3px solid var(--red-light);
+    opacity: 0.7;
+  }
+
+  .cell:hover:not(.selected) {
+    filter: brightness(1.15);
+  }
+
+  /* player indicators */
+  .players {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 2rem;
+    padding: 0 4px;
+  }
+
+  .player-tag {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    padding: 6px 16px;
+    border: 1px solid;
+    transition: all 0.3s;
+  }
+
+  .player-tag.white {
+    border-color: var(--cream);
+    color: var(--cream);
+    opacity: 0.4;
+  }
+  .player-tag.black {
+    border-color: var(--gold);
+    color: var(--gold);
+    opacity: 0.4;
+  }
+  .player-tag.active {
+    opacity: 1;
+    box-shadow: 0 0 12px currentColor22;
+  }
+
+  .controls {
+    margin-top: 2.5rem;
+    display: flex;
+    gap: 1rem;
+  }
+
+  button {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    padding: 10px 24px;
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  button:hover {
+    background: var(--gold);
+    color: var(--dark);
+  }
+
+  .rules {
+    margin-top: 3rem;
+    max-width: 520px;
+    text-align: center;
+    opacity: 0.45;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    letter-spacing: 0.03em;
+    padding: 0 1rem;
+  }
+
+  .rules strong {
+    font-style: italic;
+    color: var(--gold-light);
+    font-weight: 400;
+  }
+
+  .move-log {
+    margin-top: 2rem;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    color: var(--gold-light);
+    opacity: 0.4;
+    text-align: center;
+    min-height: 1.4em;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .board { animation: fadeIn 0.6s ease both; }
+  h1 { animation: fadeIn 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<h1>LINEA REGUM</h1>
+<p class="subtitle">One-Dimensional Chess · 10 Squares</p>
+
+<div class="status-bar" id="status">White to move</div>
+
+<div class="board-wrapper">
+  <div class="board" id="board"></div>
+</div>
+
+<div class="players">
+  <div class="player-tag white active" id="tag-white">♙ WHITE</div>
+  <div class="player-tag black" id="tag-black">BLACK ♟</div>
+</div>
+
+<div class="move-log" id="move-log"></div>
+
+<div class="controls">
+  <button onclick="resetGame()">NEW GAME</button>
+</div>
+
+<div class="rules">
+  Pieces move along a single line of 10 squares.<br>
+  <strong>King</strong> moves 1 square. <strong>Rook</strong> slides any distance. <strong>Knight</strong> jumps ±2. <strong>Bishop</strong> slides ±2 squares (can jump over).<br>
+  Capture the enemy King to win. Check is indicated but not enforced.
+</div>
+
+<script>
+// Piece encoding: uppercase = White, lowercase = Black
+// K=King, R=Rook, N=Knight, B=Bishop
+
+const PIECE_UNICODE = {
+  K: '♔', k: '♚',
+  R: '♖', r: '♜',
+  N: '♘', n: '♞',
+  B: '♗', b: '♝',
+};
+
+// Initial setup: White on left (0-3), Black on right (6-9), middle 2 empty
+// White: R N B K . . k b n r  Black
+// positions 0-3 white, 6-9 black
+let board = [];
+let turn = 'white'; // 'white' or 'black'
+let selected = null;
+let validMoves = [];
+let gameOver = false;
+
+function initBoard() {
+  board = new Array(10).fill(null);
+  // White pieces (left side, index 0-3)
+  board[0] = 'R';
+  board[1] = 'N';
+  board[2] = 'B';
+  board[3] = 'K';
+  // Black pieces (right side, index 6-9)
+  board[6] = 'k';
+  board[7] = 'b';
+  board[8] = 'n';
+  board[9] = 'r';
+}
+
+function isWhite(p) { return p && p === p.toUpperCase(); }
+function isBlack(p) { return p && p === p.toLowerCase(); }
+function isEnemy(p, t) {
+  if (!p) return false;
+  return t === 'white' ? isBlack(p) : isWhite(p);
+}
+function isFriend(p, t) {
+  if (!p) return false;
+  return t === 'white' ? isWhite(p) : isBlack(p);
+}
+
+function getValidMoves(idx) {
+  const piece = board[idx];
+  if (!piece) return [];
+  const type = piece.toUpperCase();
+  const moves = [];
+
+  function tryAdd(i) {
+    if (i < 0 || i > 9) return false;
+    if (isFriend(board[i], turn)) return false;
+    moves.push(i);
+    return !board[i]; // can continue sliding if empty
+  }
+
+  if (type === 'K') {
+    [-1, 1].forEach(d => tryAdd(idx + d));
+  } else if (type === 'R') {
+    for (let d of [-1, 1]) {
+      for (let i = idx + d; i >= 0 && i <= 9; i += d) {
+        if (!tryAdd(i)) break;
+      }
+    }
+  } else if (type === 'N') {
+    [-2, 2].forEach(d => tryAdd(idx + d));
+  } else if (type === 'B') {
+    // Bishop slides in steps of 2, can jump
+    for (let d of [-2, 2]) {
+      for (let i = idx + d; i >= 0 && i <= 9; i += d) {
+        if (!tryAdd(i)) break;
+      }
+    }
+  }
+  return moves;
+}
+
+function isKingInCheck(color) {
+  const kingPiece = color === 'white' ? 'K' : 'k';
+  const kingPos = board.indexOf(kingPiece);
+  if (kingPos === -1) return false;
+  const enemy = color === 'white' ? 'black' : 'white';
+  for (let i = 0; i < 10; i++) {
+    const p = board[i];
+    if (!p) continue;
+    if (color === 'white' ? isBlack(p) : isWhite(p)) {
+      // temporarily set turn to enemy to get moves
+      const savedTurn = turn;
+      turn = enemy;
+      const moves = getValidMoves(i);
+      turn = savedTurn;
+      if (moves.includes(kingPos)) return true;
+    }
+  }
+  return false;
+}
+
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  for (let i = 0; i < 10; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.setAttribute('data-idx', i + 1);
+
+    if (board[i]) cell.textContent = PIECE_UNICODE[board[i]];
+
+    if (selected === i) cell.classList.add('selected');
+    if (validMoves.includes(i)) {
+      cell.classList.add('valid-move');
+      if (board[i]) cell.classList.add('has-enemy');
+    }
+
+    cell.addEventListener('click', () => handleClick(i));
+    boardEl.appendChild(cell);
+  }
+
+  // Update player tags
+  document.getElementById('tag-white').classList.toggle('active', turn === 'white');
+  document.getElementById('tag-black').classList.toggle('active', turn === 'black');
+
+  // Status
+  const statusEl = document.getElementById('status');
+  statusEl.className = 'status-bar';
+  if (!gameOver) {
+    const inCheck = isKingInCheck(turn);
+    if (inCheck) {
+      statusEl.textContent = `${turn.toUpperCase()} IS IN CHECK!`;
+      statusEl.classList.add('check');
+    } else {
+      statusEl.textContent = `${turn.charAt(0).toUpperCase() + turn.slice(1)} to move`;
+    }
+  }
+}
+
+function handleClick(idx) {
+  if (gameOver) return;
+
+  if (selected === null) {
+    // Select piece
+    const piece = board[idx];
+    if (!piece) return;
+    if (turn === 'white' && !isWhite(piece)) return;
+    if (turn === 'black' && !isBlack(piece)) return;
+    selected = idx;
+    validMoves = getValidMoves(idx);
+    render();
+  } else {
+    if (validMoves.includes(idx)) {
+      // Make move
+      const captured = board[idx];
+      const from = selected;
+      board[idx] = board[from];
+      board[from] = null;
+
+      // Log
+      const pName = {K:'King',R:'Rook',N:'Knight',B:'Bishop'}[board[idx].toUpperCase()];
+      let logMsg = `${turn.charAt(0).toUpperCase()+turn.slice(1)}: ${pName} ${from+1}→${idx+1}`;
+      if (captured) logMsg += ` captures ${captured.toUpperCase() === captured ? 'White' : 'Black'} ${{K:'King',R:'Rook',N:'Knight',B:'Bishop'}[captured.toUpperCase()]}`;
+      document.getElementById('move-log').textContent = logMsg;
+
+      // Check win
+      if (captured && captured.toUpperCase() === 'K') {
+        selected = null; validMoves = [];
+        gameOver = true;
+        render();
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = `${turn.toUpperCase()} WINS! The King has fallen.`;
+        statusEl.className = 'status-bar win';
+        return;
+      }
+
+      turn = turn === 'white' ? 'black' : 'white';
+      selected = null;
+      validMoves = [];
+      render();
+    } else if (idx === selected) {
+      // Deselect
+      selected = null;
+      validMoves = [];
+      render();
+    } else {
+      // Select new piece of same color
+      const piece = board[idx];
+      if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
+        selected = idx;
+        validMoves = getValidMoves(idx);
+        render();
+      } else {
+        selected = null;
+        validMoves = [];
+        render();
+      }
+    }
+  }
+}
+
+function resetGame() {
+  initBoard();
+  turn = 'white';
+  selected = null;
+  validMoves = [];
+  gameOver = false;
+  document.getElementById('move-log').textContent = '';
+  render();
+}
+
+initBoard();
+render();
+</script>
+</body>
+</html>

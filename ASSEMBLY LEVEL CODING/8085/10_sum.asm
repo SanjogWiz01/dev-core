@@ -11,4 +11,4 @@ JNC LOOP;
 MVI A,01H
 OUT 02H
 loop:
-hlt;
+hlt;end of code

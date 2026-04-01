@@ -9,4 +9,4 @@ int ax, 02
 int 21 h 
 
 int ax , 09h
-int 21 h
+int 21 hb   

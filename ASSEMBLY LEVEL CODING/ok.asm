@@ -7,3 +7,6 @@ int 21 h ' this is input box'
 
 int ax, 02
 int 21 h 
+
+int ax , 09h
+int 21 h

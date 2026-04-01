@@ -3,4 +3,4 @@ push and pop the data
 mov ax , 09
 int 21h  
 int ax , 01
-int 21 h
+int 21 h ' this is input box'

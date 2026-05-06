@@ -1,6 +1,7 @@
-# Hand Motion Drawing Board
+# Hand Detection
 
-This project turns your webcam into a hand-controlled drawing board.
+This project opens your webcam, detects hands with MediaPipe, and draws hand
+landmarks on the video.
 
 ## Run
 
@@ -16,16 +17,14 @@ Or from this folder:
 python hand.py
 ```
 
+The old simple command also runs the same detector now:
+
+```powershell
+python simple.py
+```
+
 ## Controls
 
-- Index finger only: draw
-- Index + middle fingers: move without drawing
-- Open palm / four fingers: erase
-- `C`: clear board
-- `S`: save drawing to Desktop
-- `B`: switch between camera view and whiteboard view
-- `1` to `9`: change marker color
-- `+` / `-`: change brush size
 - `Q` or `Esc`: quit
 
 If the camera does not open, try:

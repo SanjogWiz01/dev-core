@@ -1,4 +1,4 @@
-"""Run the hand motion drawing board from the project root."""
+"""Run the hand detection viewer from the project root."""
 
 from pathlib import Path
 import runpy

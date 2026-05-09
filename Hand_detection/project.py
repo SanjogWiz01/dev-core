@@ -44,9 +44,15 @@ WINDOW = "Advanced Hand Writing Board"
 TOOLBAR_HEIGHT = 84
 DEFAULT_MARKER_THICKNESS = 10
 ERASER_THICKNESS = 46
-MAX_DRAW_JUMP = 115
-INK_ANCHOR_MAX_OFFSET = 18
-WRITE_GRACE_FRAMES = 3
+MAX_DRAW_JUMP = 135
+INK_ANCHOR_MAX_OFFSET = 24
+WRITE_GRACE_FRAMES = 7
+GESTURE_SMOOTHING_FRAMES = 5
+PEN_TIP_EXTENSION_RATIO = 0.35
+MAX_PEN_TIP_EXTENSION = 22.0
+MIN_HAND_DETECTION_CONFIDENCE = 0.45
+MIN_HAND_PRESENCE_CONFIDENCE = 0.45
+MIN_TRACKING_CONFIDENCE = 0.50
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODEL_NAME = "hand_landmarker.task"
 MODEL_CANDIDATES = (
@@ -178,6 +184,42 @@ class PointerFilter:
         )
 
 
+class GestureSmoother:
+    """Debounce landmark noise while keeping index-finger writing responsive."""
+
+    def __init__(self, window: int = GESTURE_SMOOTHING_FRAMES) -> None:
+        self.samples: deque[GestureState] = deque(maxlen=window)
+
+    def reset(self) -> None:
+        self.samples.clear()
+
+    @staticmethod
+    def voted(values: Iterable[bool], required: int) -> bool:
+        return sum(values) >= required
+
+    def update(self, gesture: GestureState) -> GestureState:
+        self.samples.append(gesture)
+        sample_count = len(self.samples)
+        if sample_count < 3:
+            return gesture
+
+        # Writing starts quickly, while middle/ring/pinky need stronger
+        # agreement so one noisy frame does not lift the pen.
+        index_required = max(2, sample_count // 2)
+        blocker_required = max(3, (sample_count + 1) // 2)
+        latest = self.samples[-1]
+
+        return GestureState(
+            thumb=self.voted((sample.thumb for sample in self.samples), blocker_required),
+            index=self.voted((sample.index for sample in self.samples), index_required),
+            middle=self.voted((sample.middle for sample in self.samples), blocker_required),
+            ring=self.voted((sample.ring for sample in self.samples), blocker_required),
+            pinky=self.voted((sample.pinky for sample in self.samples), blocker_required),
+            pose=latest.pose,
+            motion=latest.motion,
+        )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write smoothly with hand motion")
     parser.add_argument("--camera", type=int, default=0, help="camera index")
@@ -210,9 +252,9 @@ def make_landmarker(model_path: Path, max_hands: int = 1) -> vision.HandLandmark
         base_options=BaseOptions(model_asset_path=str(model_path)),
         running_mode=vision.RunningMode.VIDEO,
         num_hands=max_hands,
-        min_hand_detection_confidence=0.35,
-        min_hand_presence_confidence=0.35,
-        min_tracking_confidence=0.35,
+        min_hand_detection_confidence=MIN_HAND_DETECTION_CONFIDENCE,
+        min_hand_presence_confidence=MIN_HAND_PRESENCE_CONFIDENCE,
+        min_tracking_confidence=MIN_TRACKING_CONFIDENCE,
     )
     return vision.HandLandmarker.create_from_options(options)
 
@@ -251,6 +293,23 @@ def landmark_point(landmarks, landmark_id: int, width: int, height: int) -> tupl
     x = min(max(int(landmark.x * width), 0), width - 1)
     y = min(max(int(landmark.y * height), 0), height - 1)
     return x, y
+
+
+def index_pen_point(landmarks, width: int, height: int) -> tuple[int, int]:
+    tip = np.array(landmark_point(landmarks, 8, width, height), dtype=np.float32)
+    dip = np.array(landmark_point(landmarks, 7, width, height), dtype=np.float32)
+    direction = tip - dip
+    length = float(np.linalg.norm(direction))
+    if length <= 1e-6:
+        x, y = tip
+    else:
+        extension = min(MAX_PEN_TIP_EXTENSION, length * PEN_TIP_EXTENSION_RATIO)
+        x, y = tip + (direction / length) * extension
+
+    return (
+        min(max(int(round(x)), 0), width - 1),
+        min(max(int(round(y)), 0), height - 1),
+    )
 
 
 def anchor_point_to_raw(
@@ -412,6 +471,11 @@ def palm_size_pixels(landmarks, width: int, height: int) -> float:
     index = np.array(landmark_point(landmarks, 5, width, height), dtype=np.float32)
     pinky = np.array(landmark_point(landmarks, 17, width, height), dtype=np.float32)
     return float(np.linalg.norm(wrist - middle) + np.linalg.norm(index - pinky))
+
+
+def draw_jump_limit(landmarks, width: int, height: int) -> float:
+    scaled_limit = palm_size_pixels(landmarks, width, height) * 0.55
+    return min(220.0, max(float(MAX_DRAW_JUMP), scaled_limit))
 
 
 def select_primary_hand(
@@ -586,6 +650,7 @@ def run() -> int:
     marker_thickness = DEFAULT_MARKER_THICKNESS
     pointer_filter = PointerFilter()
     ink_filter = PointerFilter(min_cutoff=4.8, beta=0.055, derivative_cutoff=1.4)
+    gesture_smoother = GestureSmoother()
     pointer_history: deque[tuple[float, tuple[int, int]]] = deque(maxlen=7)
     last_draw_point: tuple[int, int] | None = None
     last_pointer: tuple[int, int] | None = None
@@ -632,7 +697,7 @@ def run() -> int:
 
                 if selected_hand is not None:
                     missing_frames = 0
-                    raw_pointer = landmark_point(selected_hand, 8, width, height)
+                    raw_pointer = index_pen_point(selected_hand, width, height)
                     pointer = pointer_filter(raw_pointer, now_seconds)
                     ink_point = anchor_point_to_raw(
                         ink_filter(raw_pointer, now_seconds),
@@ -643,7 +708,7 @@ def run() -> int:
                     last_pointer = pointer
                     last_ink_point = ink_point
                     motion = classify_motion(pointer_history)
-                    gesture = classify_gesture(selected_hand, motion)
+                    gesture = gesture_smoother.update(classify_gesture(selected_hand, motion))
 
                     selected_tool = tool_at(pointer, width) if gesture.selecting else None
                     if selected_tool:
@@ -678,7 +743,7 @@ def run() -> int:
                                 ink_point[0] - last_draw_point[0],
                                 ink_point[1] - last_draw_point[1],
                             )
-                            if jump > MAX_DRAW_JUMP:
+                            if jump > draw_jump_limit(selected_hand, width, height):
                                 last_draw_point = None
                         draw_marker_stroke(
                             canvas,
@@ -699,6 +764,7 @@ def run() -> int:
                     if missing_frames > 5:
                         pointer_filter.reset()
                         ink_filter.reset()
+                        gesture_smoother.reset()
                         pointer_history.clear()
                         last_pointer = None
 

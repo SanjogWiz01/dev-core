@@ -1,4 +1,3 @@
 mediapipe>=0.10.35
 opencv-python>=4.10
 numpy>=2.0
-python also

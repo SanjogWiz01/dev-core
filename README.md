@@ -1,5 +1,7 @@
 # dev-core
-cover cg,cn,os,mp and sylaabuss stuff code and files here..
+cover cg,cn,os,mp and sylaabuss stuff code and files here...
+.
+
 computer graplics
 operating sysyem
 computer network

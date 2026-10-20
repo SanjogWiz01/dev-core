@@ -4,11 +4,4 @@ computer graplics
 operating sysyem
 computer network
 extra vibe coding stuff.
-.
-.
-
- .
-..
-..
-
 
